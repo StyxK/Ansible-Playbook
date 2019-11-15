@@ -1,0 +1,2 @@
+[server]
+serverx.example.com ansible_user=root ansible_password=redhat

@@ -1,0 +1,85 @@
+---
+- name: final preparation
+  hosts: server
+  gather_facts: false
+  tasks:
+    - name: install lib
+      yum:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - 'httpd'
+        - 'mariadb'
+        - 'mariadb-server'
+        - 'php'
+        - 'php-common'
+        - 'php-mysql'
+        - 'php-gd'
+        - 'php-xml'
+        - 'php-mbstring'
+        - 'php-mcrypt'
+        - 'php-xmlrpc'
+        - 'unzip'
+        - 'wget'
+        - 'python2-pip'
+    - name: enable service
+      service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - 'httpd'
+        - 'mariadb'
+    - firewalld:
+        service: http
+        permanent: yes
+        state: enabled
+        immediate: yes
+    - pip:
+       name: PyMySQL
+    - name: set admin password
+      mysql_user:
+        name: admin
+        password: "abc"
+        state: present
+    - name: dump database
+      block:
+        - name: copy dump to database
+          copy:
+            src: dump.sql
+            dest: /tmp
+        - name: execute sql
+          mysql_db:
+            name: my_db
+            state: import
+            target: /tmp/dump.sql
+      rescue:
+        - debug: 
+            msg: "error"
+    - name: make directory
+      file:
+        path: /var/www/html/wordpress
+        state: directory
+        mode: '0755'
+    - name: Download and unarchive wordpress
+      unarchive:
+        src: https://wordpress.org/wordpress-5.0.tar.gz
+        dest: /var/www/html/
+        remote_src: yes
+        owner: apache
+    - name: create directory uploads
+      file:
+        path: /var/www/html/wordpress/wp-content/uploads
+        state: directory
+        owner: apache
+        recurse: yes
+    - name: move wordpress file
+      block:
+        - name: rename
+          copy:
+            remote_src: true
+            src: /var/www/html/wordpress/wp-config-sample.php
+            dest: /var/www/html/wordpress/wp-config.php
+      rescue:
+        - debug:
+            msg: "file not found"
